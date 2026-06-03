@@ -105,17 +105,37 @@ const FinancialReports = () => {
     };
 
     // Map orders to ledger objects
-    const ledger = orders.length > 0 ? orders.map(tx => ({
-        txId: tx.invoice || String(tx.id),
-        customer: tx.nama_pelanggan,
-        serviceType: getLayananText(tx),
-        paymentMethod: tx.metode_pembayaran || 'cash',
-        dateTime: new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ' - ' + new Date(tx.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
-        price: tx.total_harga,
-        status: (tx.status_pembayaran || 'pending').toUpperCase(),
-        initials: getInitials(tx.nama_pelanggan),
-        kasir: tx.kasir || 'Siti Aminah'
-    })) : mockLedger;
+    const ledger = orders.length > 0 ? orders.map(tx => {
+        const dateObj = new Date(tx.created_at);
+        const formattedDate = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        const formattedTime = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.') + ' WIB';
+        return {
+            id: tx.id,
+            txId: tx.invoice || String(tx.id),
+            customer: tx.nama_pelanggan,
+            serviceType: getLayananText(tx),
+            paymentMethod: tx.metode_pembayaran || 'cash',
+            date: formattedDate,
+            time: formattedTime,
+            dateTime: `${formattedDate} - ${formattedTime}`,
+            price: tx.total_harga,
+            status: (tx.status_pembayaran || 'pending').toUpperCase(),
+            initials: getInitials(tx.nama_pelanggan),
+            kasir: tx.kasir || 'Siti Aminah',
+            phone: tx.nomor_hp || '-',
+            address: tx.alamat || '-'
+        };
+    }) : mockLedger.map(m => {
+        const parts = m.dateTime.split(' - ');
+        return { 
+            ...m, 
+            id: parseInt(m.txId) || 0,
+            date: parts[0] || m.dateTime, 
+            time: parts[1] || '',
+            phone: '08123456789', 
+            address: 'Tenggilis Mejoyo' 
+        };
+    });
 
     // Filter real-time monthly, quarterly, yearly based on order creation date
     const getFilteredByPeriod = (items) => {
@@ -153,6 +173,8 @@ const FinancialReports = () => {
         l.dateTime.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(l.kasir || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const sortedLedger = [...filteredLedger].sort((a, b) => b.id - a.id);
 
     const handleDownload = () => {
         setIsDownloading(true);
@@ -324,60 +346,75 @@ const FinancialReports = () => {
                         <table className="data-table">
                             <thead>
                                 <tr>
-                                    <th>ID TRANSAKSI</th>
-                                    <th>PELANGGAN</th>
-                                    <th>LAYANAN UTAMA</th>
-                                    <th>KASIR</th>
-                                    <th>METODE BAYAR</th>
-                                    <th style={{ minWidth: '240px' }}>DATE & TIME</th>
-                                    <th>HARGA</th>
-                                    <th>STATUS</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>ID Transaksi</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Pelanggan</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Layanan</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>No Handphone</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Alamat</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Total Harga</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Status Proses</th>
+                                    <th style={{ fontWeight: '800', color: '#0f172a' }}>Tanggal & Waktu</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredLedger.map((l, index) => (
-                                    <tr key={index}>
-                                        <td style={{ fontWeight: '700', color: '#2563eb' }}>{l.txId}</td>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div 
-                                                    style={{ 
-                                                        width: '28px', 
-                                                        height: '28px', 
-                                                        borderRadius: '50%', 
-                                                        backgroundColor: '#eff6ff', 
-                                                        color: '#2563eb', 
-                                                        display: 'flex', 
-                                                        alignItems: 'center', 
-                                                        justifyContent: 'center',
-                                                        fontWeight: '600',
-                                                        fontSize: '11px'
-                                                    }}
-                                                >
-                                                    {l.initials}
+                                {sortedLedger.map((l, index) => {
+                                    const statusLower = l.status.toLowerCase();
+                                    let badgeClass = statusLower;
+                                    if (statusLower === 'success' || statusLower === 'diambil') badgeClass = 'diambil';
+                                    else if (statusLower === 'pending' || statusLower === 'antri') badgeClass = 'antri';
+                                    else if (statusLower === 'proses' || statusLower === 'process') badgeClass = 'proses';
+                                    else if (statusLower === 'selesai') badgeClass = 'selesai';
+                                    else if (statusLower === 'batal') badgeClass = 'batal';
+
+                                    return (
+                                        <tr key={index}>
+                                            <td style={{ fontWeight: '600', color: '#0f172a' }}>{l.txId}</td>
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div 
+                                                        style={{ 
+                                                            width: '28px', 
+                                                            height: '28px', 
+                                                            borderRadius: '50%', 
+                                                            backgroundColor: '#eff6ff', 
+                                                            color: '#2563eb', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            justifyContent: 'center',
+                                                            fontWeight: '600',
+                                                            fontSize: '11px'
+                                                        }}
+                                                    >
+                                                        {l.initials}
+                                                    </div>
+                                                    <span style={{ fontWeight: '600', fontSize: '13px' }}>{l.customer}</span>
                                                 </div>
-                                                <span style={{ fontWeight: '600', fontSize: '13px' }}>{l.customer}</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.serviceType}>
-                                            {l.serviceType}
-                                        </td>
-                                        <td style={{ fontWeight: '500' }}>{l.kasir}</td>
-                                        <td style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: l.paymentMethod === 'qris' ? '#0284c7' : l.paymentMethod === 'tf' ? '#7c3aed' : '#059669' }}>
-                                            {l.paymentMethod}
-                                        </td>
-                                        <td style={{ minWidth: '240px', fontSize: '13px', color: 'var(--text-main)', fontWeight: '500' }}>{l.dateTime}</td>
-                                        <td className="price-text" style={{ fontWeight: '600' }}>{formatRupiah(l.price)}</td>
-                                        <td>
-                                            <span 
-                                                className={`badge ${l.status.toLowerCase() === 'selesai' || l.status.toLowerCase() === 'diambil' ? 'success' : 'pending'}`}
-                                                style={{ fontSize: '11px', padding: '4px 10px', fontWeight: '700', textTransform: 'uppercase' }}
-                                            >
-                                                {l.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.serviceType}>
+                                                {l.serviceType}
+                                            </td>
+                                            <td>{l.phone || '-'}</td>
+                                            <td>{l.address || '-'}</td>
+                                            <td className="price-text" style={{ fontWeight: '600' }}>{formatRupiah(l.price)}</td>
+                                            <td>
+                                                <span 
+                                                    className={`badge ${badgeClass}`}
+                                                    style={{ fontSize: '11px', padding: '4px 10px', fontWeight: '700', textTransform: 'uppercase' }}
+                                                >
+                                                    {badgeClass}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="date-time-cell">
+                                                    <span className="date-text">{l.date}</span>
+                                                    {l.time && (
+                                                        <span className="time-text" style={{ fontSize: '11px', color: '#6b7280' }}>{l.time}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

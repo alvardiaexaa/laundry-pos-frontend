@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ServiceCard = ({ id, name, price, unit, onAdd }) => {
+const ServiceCard = ({ id, name, price, unit, category = 'normal', onAdd }) => {
     const formatRupiah = (num) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -35,28 +35,73 @@ const ServiceCard = ({ id, name, price, unit, onAdd }) => {
     };
 
     return (
-        <div className="service-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    backgroundColor: '#f1f5f9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#475569'
+        <div 
+            className="service-card" 
+            style={{ 
+                backgroundColor: '#ffffff', 
+                borderRadius: '24px', 
+                padding: '24px', 
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', 
+                border: '1px solid #e2e8f0', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                position: 'relative', 
+                textAlign: 'center'
+            }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '14px', position: 'relative' }}>
+                <div style={{ 
+                    width: '48px', 
+                    height: '48px', 
+                    borderRadius: '12px', 
+                    backgroundColor: category.toLowerCase() === 'express' ? '#fff0e0' : '#eff6ff', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    color: category.toLowerCase() === 'express' ? '#ff7a00' : '#2563eb' 
                 }}>
                     {renderIcon()}
                 </div>
-                <div className="service-card-info">
-                    <span className="service-card-name">{name}</span>
-                    <span className="service-card-price">{formatRupiah(price)} / {unit}</span>
-                </div>
             </div>
-            <button className="service-add-btn" onClick={() => onAdd(id)}>
-                +
-            </button>
+
+            <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: category.toLowerCase() === 'express' ? '#ff7a00' : '#2563eb', marginBottom: '6px' }}>
+                {category}
+            </span>
+
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '0 0 20px 0' }}>{name}</h3>
+            <div style={{ width: '100%', height: '1px', backgroundColor: '#f1f5f9', marginBottom: '16px' }}></div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <div style={{ textAlign: 'left' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', textTransform: 'uppercase', fontWeight: '600', marginBottom: '2px' }}>Harga</span>
+                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
+                        {formatRupiah(price)}
+                        <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b' }}>/{unit}</span>
+                    </span>
+                </div>
+                {onAdd && (
+                    <button 
+                        onClick={() => onAdd(id)}
+                        style={{ 
+                            backgroundColor: category.toLowerCase() === 'express' ? '#ff7a00' : '#2563eb', 
+                            color: '#fff', 
+                            border: 'none', 
+                            borderRadius: '50%', 
+                            width: '32px', 
+                            height: '32px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '18px', 
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        +
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

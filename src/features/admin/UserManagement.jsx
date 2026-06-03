@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const UserManagement = () => {
-    // Initial employee state (EMP ID removed, Dwi Lestari renamed, Operations removed)
     const [employees, setEmployees] = useState([
-        { name: 'Siti Aminah', email: 'test@example.com', role: 'KASIR', status: 'Online / Aktif', initials: 'SA' },
-        { name: 'Budi Susanto', email: 'budi@example.com', role: 'KASIR', status: 'Online / Aktif', initials: 'BS' },
-        { name: 'admin kelompok 10', email: 'admin@example.com', role: 'ADMINISTRATOR', status: 'Online / Aktif', initials: 'AK' }
+        { name: 'Siti Aminah', email: 'test@example.com', role: 'KASIR', status: 'Online', initials: 'SA' },
+        { name: 'Budi Susanto', email: 'budi@example.com', role: 'KASIR', status: 'Online', initials: 'BS' },
+        { name: 'admin kelompok 10', email: 'admin@example.com', role: 'ADMINISTRATOR', status: 'Online', initials: 'AK' }
     ]);
+
+    useEffect(() => {
+        const fetchCashiers = async () => {
+            try {
+                const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+                const res = await axios.get(`${apiURL}/cashiers`);
+                if (res.data.status === 'success') {
+                    const fetched = res.data.data.map(emp => ({
+                        name: emp.name,
+                        email: emp.email,
+                        role: emp.role,
+                        status: emp.status === 'Online' ? 'Online' : 'Offline',
+                        initials: emp.initials
+                    }));
+                    const adminUser = { name: 'admin kelompok 10', email: 'admin@example.com', role: 'ADMINISTRATOR', status: 'Online', initials: 'AK' };
+                    setEmployees([adminUser, ...fetched]);
+                }
+            } catch (e) {
+                console.error("Gagal mengambil data kasir", e);
+            }
+        };
+        fetchCashiers();
+    }, []);
 
     const [roleFilter, setRoleFilter] = useState('Semua Role');
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     
-    // Form fields for new employee
     const [newName, setNewName] = useState('');
     const [newEmail, setNewEmail] = useState('');
     const [newRole, setNewRole] = useState('KASIR');
@@ -26,7 +48,7 @@ const UserManagement = () => {
             name: newName,
             email: newEmail,
             role: newRole,
-            status: 'Online / Aktif',
+            status: 'Online',
             initials: initials
         };
 
@@ -43,11 +65,9 @@ const UserManagement = () => {
         }
     };
 
-    // Derived statistics (Operations and Active Now removed)
     const totalAdmin = employees.filter(emp => emp.role === 'ADMINISTRATOR').length;
     const totalCashier = employees.filter(emp => emp.role === 'KASIR' || emp.role === 'KASIR').length;
 
-    // Filtered list
     const filteredEmployees = employees.filter(emp => {
         const matchesRole = roleFilter === 'Semua Role' || 
                             (roleFilter === 'Administrator' && emp.role === 'ADMINISTRATOR') ||
@@ -59,7 +79,6 @@ const UserManagement = () => {
 
     return (
         <div>
-            {/* Header Section */}
             <div className="dashboard-header">
                 <div className="header-title">
                     <h1>Manajemen Karyawan / User</h1>
@@ -217,13 +236,13 @@ const UserManagement = () => {
                                         </span>
                                     </td>
                                     <td>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500', color: '#10b981' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500', color: emp.status === 'Online' ? '#10b981' : '#6b7280' }}>
                                             <span 
                                                 style={{ 
                                                     width: '8px', 
                                                     height: '8px', 
                                                     borderRadius: '50%', 
-                                                    backgroundColor: '#10b981'
+                                                    backgroundColor: emp.status === 'Online' ? '#10b981' : '#cbd5e1'
                                                 }}
                                             />
                                             {emp.status}
@@ -254,7 +273,6 @@ const UserManagement = () => {
                 </div>
             </div>
 
-            {/* Add Employee Modal (Employee ID input removed, Roles cleaned, fully translated) */}
             {showAddModal && (
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'left', borderRadius: '20px', padding: '24px' }}>

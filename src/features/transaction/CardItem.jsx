@@ -1,7 +1,6 @@
 import React from 'react';
 
 const CardItem = ({ item, onIncrease, onDecrease, onRemove }) => {
-    // Format number to Rupiah
     const formatRupiah = (num) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',

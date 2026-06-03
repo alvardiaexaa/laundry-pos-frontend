@@ -28,7 +28,6 @@ const OrderSummary = ({
 
     return (
         <div className="transaction-right-panel">
-            {/* Info Pelanggan Section */}
             <div className="client-info-card">
                 <h3 className="client-info-title">Info pelanggan</h3>
                 
@@ -76,7 +75,6 @@ const OrderSummary = ({
 
             </div>
 
-            {/* Keranjang Section */}
             <div className="cart-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

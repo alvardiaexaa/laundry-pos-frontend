@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import axios from 'axios';
 import './App.css'
 import Dashboard from './features/dashboard/DashboardPage';
 import AdminDashboard from './features/dashboard/AdminDashboard'; 
@@ -37,7 +38,16 @@ function App() {
     );
   };
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
+    try {
+      const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      const name = localStorage.getItem('cashier_name');
+      if (name) {
+        await axios.post(`${apiURL}/logout`, { name });
+      }
+    } catch (e) {
+      console.warn("Failed to notify backend of logout:", e);
+    }
     localStorage.removeItem('cashier_logged_in');
     localStorage.removeItem('cashier_name');
     localStorage.removeItem('cashier_outlet');

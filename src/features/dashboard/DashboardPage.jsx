@@ -7,10 +7,10 @@ const DashboardPage = () => {
     const navigate = useNavigate();
     const { setShowLogoutModal } = useOutletContext();
     const [stats, setStats] = useState({
-        order_hari_ini: 26,
-        pelanggan_aktif: 5,
-        proses: '1/6',
-        pemasukan_hari_ini: 250000,
+        order_hari_ini: 0,
+        pelanggan_aktif: 0,
+        proses: '0/0',
+        pemasukan_hari_ini: 0,
         latest_transactions: []
     });
     const [allTransactions, setAllTransactions] = useState([]);
@@ -59,12 +59,24 @@ const DashboardPage = () => {
         }).format(num).replace('Rp', 'Rp ');
     };
 
-    // Format Date string
+    const getInitials = (name) => {
+        if (!name) return 'CS';
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    };
+
+    // Format string tanggal & waktu
     const formatDate = (dateStr) => {
+        if (!dateStr) return { date: '-', time: '' };
         const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return dateStr;
-        const options = { month: 'short', day: 'numeric', year: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
+        if (isNaN(date.getTime())) return { date: dateStr, time: '' };
+        
+        const dateOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+        const formattedDate = date.toLocaleDateString('id-ID', dateOptions);
+        
+        const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
+        const formattedTime = date.toLocaleTimeString('id-ID', timeOptions).replace(':', '.') + ' WIB';
+        
+        return { date: formattedDate, time: formattedTime };
     };
 
     const handleLaporan = () => {
@@ -85,10 +97,8 @@ const DashboardPage = () => {
         reportText += `DAFTAR TRANSAKSI TERBARU:\n`;
         reportText += `--------------------------------------------------\n`;
         
-        const txList = stats.latest_transactions && stats.latest_transactions.length > 0 
-            ? stats.latest_transactions 
-            : mockTransactions;
-            
+        const txList = stats.latest_transactions || [];
+             
         txList.forEach((tx) => {
             const isMockId = String(tx.id).length === 4;
             const invoiceLabel = isMockId ? tx.id : (tx.invoice || `TX-${tx.id}`);
@@ -164,9 +174,7 @@ const DashboardPage = () => {
         }
     };
 
-    const rawTransactions = stats.latest_transactions && stats.latest_transactions.length > 0
-        ? stats.latest_transactions
-        : mockTransactions;
+    const rawTransactions = stats.latest_transactions || [];
 
     // Sort by id descending
     const transactionsToRender = [...rawTransactions].sort((a, b) => b.id - a.id);
@@ -183,6 +191,16 @@ const DashboardPage = () => {
         }
         return tx.layanan || 'Cuci kering setrika';
     };
+
+    const activeCount = allTransactions.length > 0
+        ? allTransactions.filter(tx => 
+            tx.status_pembayaran === 'antri' || 
+            tx.status_pembayaran === 'proses' || 
+            tx.status_pembayaran === 'pending'
+          ).length
+        : (typeof stats.proses === 'string' && stats.proses.includes('/')
+            ? parseInt(stats.proses.split('/')[0]) || 0
+            : parseInt(stats.proses) || 0);
 
     return (
         <div>
@@ -218,7 +236,7 @@ const DashboardPage = () => {
                 <div className="metric-card blue">
                     <div className="metric-info">
                         <span className="metric-label">Menunggu/Proses</span>
-                        <span className="metric-value">{stats.proses}</span>
+                        <span className="metric-value">{activeCount} Pesanan</span>
                     </div>
                     <div className="metric-icon">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -243,12 +261,12 @@ const DashboardPage = () => {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>ID Transaksi</th>
-                                <th>Pelanggan</th>
-                                <th>Layanan</th>
-                                <th>Harga</th>
-                                <th>Status</th>
-                                <th>Tanggal</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>ID Transaksi</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>Pelanggan</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>Layanan</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>Total Harga</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>Status Proses</th>
+                                <th style={{ fontWeight: '800', color: '#0f172a' }}>Tanggal & Waktu</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -260,11 +278,36 @@ const DashboardPage = () => {
                                 return (
                                     <tr key={tx.id}>
                                         <td style={{ fontWeight: '600' }}>{invoiceLabel}</td>
-                                        <td>{tx.nama_pelanggan}</td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div 
+                                                    style={{ 
+                                                        width: '32px', 
+                                                        height: '32px', 
+                                                        borderRadius: '50%', 
+                                                        backgroundColor: '#f3f4f6', 
+                                                        color: '#4b5563', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'center',
+                                                        fontWeight: '600',
+                                                        fontSize: '12px'
+                                                    }}
+                                                >
+                                                    {getInitials(tx.nama_pelanggan)}
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>
+                                                        {tx.nama_pelanggan}
+                                                    </span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tx.nomor_hp || '-'}</span>
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td style={{ maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={layananName}>
                                             {layananName}
                                         </td>
-                                        <td className="price-text">{formatRupiah(tx.total_harga)}</td>
+                                        <td className="price-text" style={{ fontWeight: '600' }}>{formatRupiah(tx.total_harga)}</td>
                                         <td>
                                             <select 
                                                 value={tx.status_pembayaran}
@@ -278,7 +321,14 @@ const DashboardPage = () => {
                                                 <option value="batal">batal</option>
                                             </select>
                                         </td>
-                                        <td>{formatDate(tx.created_at)}</td>
+                                        <td>
+                                            <div className="date-time-cell">
+                                                <span className="date-text">{formatDate(tx.created_at).date}</span>
+                                                {formatDate(tx.created_at).time && (
+                                                    <span className="time-text" style={{ fontSize: '11px', color: '#6b7280' }}>{formatDate(tx.created_at).time}</span>
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 );
                             })}

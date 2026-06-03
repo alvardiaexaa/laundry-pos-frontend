@@ -12,6 +12,7 @@ const AdminDashboard = () => {
     const [allTransactions, setAllTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedTx, setSelectedTx] = useState(null);
+    const [cashiers, setCashiers] = useState([]);
 
     const mockTransactions = [
         { id: 1001, nama_pelanggan: 'Amri Pratama', nomor_hp: '08123456789', layanan: 'Cuci kering setrika', total_harga: 26640, status_pembayaran: 'selesai', created_at: '2026-06-01T09:15:00+07:00', catatan: 'Cuci bersih, jangan terlalu wangi', metode_pembayaran: 'cash', kasir: 'Siti Aminah' },
@@ -24,10 +25,15 @@ const AdminDashboard = () => {
         const fetchAdminStats = async () => {
             try {
                 const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-                const [ordersRes, customersRes] = await Promise.all([
+                const [ordersRes, customersRes, cashiersRes] = await Promise.all([
                     axios.get(`${apiURL}/orders`),
-                    axios.get(`${apiURL}/customers`).catch(e => ({ data: { data: [] } }))
+                    axios.get(`${apiURL}/customers`).catch(e => ({ data: { data: [] } })),
+                    axios.get(`${apiURL}/cashiers`).catch(e => ({ data: { data: [] } }))
                 ]);
+
+                if (cashiersRes.data.status === 'success') {
+                    setCashiers(cashiersRes.data.data);
+                }
 
                 if (ordersRes.data.status === 'success') {
                     const txs = ordersRes.data.data;
@@ -46,7 +52,7 @@ const AdminDashboard = () => {
                     ).length;
 
                     setStats({
-                        totalRevenue: totalRevenue || 122100, // Real-time daily revenue
+                        totalRevenue: totalRevenue,
                         activeOrders: activeOrders,
                         recentTransactions: txs.slice(0, 4)
                     });
@@ -69,13 +75,11 @@ const AdminDashboard = () => {
         }).format(num).replace('Rp', 'Rp ');
     };
 
-    // Helper to get initials
     const getInitials = (name) => {
         if (!name) return 'CS';
         return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
     };
 
-    // Helper to extract services text and format quantities as integer numbers
     const getLayananText = (tx) => {
         if (tx.details && tx.details.length > 0) {
             return tx.details.map(d => {
@@ -88,7 +92,6 @@ const AdminDashboard = () => {
         return tx.layanan || 'Cuci Kering Setrika';
     };
 
-    // Helper to format date with hours and minutes
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
@@ -103,12 +106,11 @@ const AdminDashboard = () => {
         return `${formattedDate}, ${formattedTime}`;
     };
 
-    // Calculate weekly revenue for chart
     const getWeeklyRevenue = () => {
         const days = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
         const revenueByDay = { senin: 0, selasa: 0, rabu: 0, kamis: 0, jumat: 0, sabtu: 0, minggu: 0 };
         
-        const sourceList = allTransactions.length > 0 ? allTransactions : mockTransactions;
+        const sourceList = allTransactions;
         
         sourceList.forEach(tx => {
             const txDate = new Date(tx.created_at);
@@ -136,12 +138,15 @@ const AdminDashboard = () => {
         return { x, y, height, val, day: day.toUpperCase() };
     });
 
-    const activeTransactions = stats.recentTransactions.length > 0 
-        ? stats.recentTransactions 
-        : mockTransactions;
+    const activeTransactions = stats.recentTransactions;
 
-    // Sort activeTransactions descending by numeric ID
     const sortedTransactions = [...activeTransactions].sort((a, b) => b.id - a.id);
+
+    const thStyle = {
+        fontWeight: '700',
+        color: '#111827',
+        fontSize: '14px'
+    };
 
     return (
         <div>
@@ -149,7 +154,7 @@ const AdminDashboard = () => {
             <div className="dashboard-header">
                 <div className="header-title">
                     <h1>Dashboard Admin</h1>
-                    <p>Selamat datang kembali! Berikut ringkasan operasional laundry secara real-time.</p>
+                    <p>Selamat datang kembali! Berikut ringkasan operasional LaundryInAja.</p>
                 </div>
                 <button 
                     className="logout-icon-btn" 
@@ -177,12 +182,12 @@ const AdminDashboard = () => {
                 </button>
             </div>
 
-            {/* Metrics cards (simplified to 2 columns: Total Revenue & Active Orders) */}
+            {/* Metrics cards */}
             <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                 <div className="metric-card green">
                     <div className="metric-info">
                         <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            TOTAL REVENUE (HARI INI)
+                            PENDAPATAN HARI INI
                         </span>
                         <span className="metric-value">{formatRupiah(stats.totalRevenue)}</span>
                     </div>
@@ -197,7 +202,7 @@ const AdminDashboard = () => {
                 <div className="metric-card orange">
                     <div className="metric-info">
                         <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            ACTIVE ORDERS
+                            PESANAN AKTIF
                         </span>
                         <span className="metric-value">{stats.activeOrders} Pesanan</span>
                     </div>
@@ -212,14 +217,12 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Middle Section: Chart & Cashier list */}
+            {/* Middle Section */}
             <div className="dashboard-middle" style={{ marginTop: '24px' }}>
-                {/* SVG Chart Card with tooltips on hover */}
                 <div className="chart-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                         <div>
                             <span className="chart-title" style={{ display: 'block', fontSize: '16px', fontWeight: '600', color: 'var(--text-main)' }}>Penjualan Mingguan</span>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Arahkan kursor ke grafik untuk melihat pendapatan detail</span>
                         </div>
                     </div>
 
@@ -228,17 +231,13 @@ const AdminDashboard = () => {
                             <g transform="translate(10, 0)">
                                 {chartBars.map((bar, idx) => (
                                     <g key={idx} style={{ cursor: 'pointer' }}>
-                                        {/* Background track */}
                                         <rect x={bar.x} y="30" width="28" height="90" rx="6" fill="#eff6ff" />
-                                        {/* Colored value bar */}
                                         <rect x={bar.x} y={bar.y} width="28" height={bar.height} rx="4" fill="#2563eb">
-                                            {/* Native SVG tooltip on hover */}
                                             <title>{`Pendapatan ${bar.day}: ${formatRupiah(bar.val)}`}</title>
                                         </rect>
                                         <text x={bar.x + 14} y="135" fontSize="10" fill="var(--text-muted)" textAnchor="middle" fontWeight="600">
                                             {bar.day}
                                         </text>
-                                        {/* Display text overlay when hovered */}
                                         {bar.height > 10 && (
                                             <text x={bar.x + 14} y={bar.y - 6} fontSize="8" fill="#1e40af" fontWeight="700" textAnchor="middle">
                                                 {formatRupiah(bar.val).replace('Rp ', '')}
@@ -251,14 +250,13 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                {/* Kasir List Card */}
                 <div className="shortcut-card" style={{ padding: '24px' }}>
                     <span className="shortcut-title" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>KASIR AKTIF</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {[
-                            { name: 'Siti Aminah', active: true, avatar: 'SA' },
-                            { name: 'Budi Susanto', active: true, avatar: 'BS' }
-                        ].map((c, idx) => (
+                        {(cashiers.length > 0 ? cashiers : [
+                            { name: 'Siti Aminah', status: 'Offline', initials: 'SA' },
+                            { name: 'Budi Susanto', status: 'Offline', initials: 'BS' }
+                        ]).map((c, idx) => (
                             <div 
                                 key={idx} 
                                 style={{ 
@@ -287,7 +285,7 @@ const AdminDashboard = () => {
                                             position: 'relative'
                                         }}
                                     >
-                                        {c.avatar}
+                                        {c.initials}
                                         <span 
                                             style={{ 
                                                 position: 'absolute',
@@ -296,15 +294,15 @@ const AdminDashboard = () => {
                                                 width: '10px',
                                                 height: '10px',
                                                 borderRadius: '50%',
-                                                backgroundColor: '#10b981',
+                                                backgroundColor: c.status === 'Online / Aktif' ? '#10b981' : '#cbd5e1',
                                                 border: '2px solid #ffffff'
                                             }}
                                         />
                                     </div>
                                     <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>{c.name}</span>
                                 </div>
-                                <span style={{ fontSize: '12px', color: '#10b981', fontWeight: '600' }}>
-                                    Online / Aktif
+                                <span style={{ fontSize: '12px', color: c.status === 'Online / Aktif' ? '#10b981' : '#6b7280', fontWeight: '600' }}>
+                                    {c.status}
                                 </span>
                             </div>
                         ))}
@@ -345,12 +343,12 @@ const AdminDashboard = () => {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>ID Transaksi</th>
-                                <th>Pelanggan</th>
-                                <th>Layanan Utama</th>
-                                <th>Total Harga</th>
-                                <th>Status Proses</th>
-                                <th>Tanggal Masuk</th>
+                                <th style={thStyle}>ID Transaksi</th>
+                                <th style={thStyle}>Pelanggan</th>
+                                <th style={thStyle}>Layanan</th>
+                                <th style={thStyle}>Total Harga</th>
+                                <th style={thStyle}>Status Proses</th>
+                                <th style={{ ...thStyle, minWidth: '160px' }}>Tanggal & Waktu</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -358,14 +356,17 @@ const AdminDashboard = () => {
                                 let badgeClass = 'success';
                                 const status = String(tx.status_pembayaran || tx.status || '').toLowerCase();
                                 
+                                // PERBAIKAN: Menyesuaikan class badge status agar 'selesai' diarahkan ke warna biru ('process' / custom style)
                                 if (status === 'pending' || status === 'belum dimulai' || status === 'belum bayar' || status === 'antri') {
                                     badgeClass = 'pending';
                                 } else if (status === 'sedang dicuci' || status === 'proses' || status === 'process') {
                                     badgeClass = 'process';
                                 } else if (status === 'batal' || status === 'cancel') {
                                     badgeClass = 'batal';
+                                } else if (status === 'selesai') {
+                                    badgeClass = 'selesai'; // Menggunakan class selesai (biru)
                                 } else if (status === 'diambil') {
-                                    badgeClass = 'success';
+                                    badgeClass = 'success'; // Tetap hijau untuk barang yang sudah diambil
                                 }
 
                                 const invoiceLabel = tx.invoice || tx.id;
@@ -402,7 +403,7 @@ const AdminDashboard = () => {
                                                     {initials}
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: '700', fontSize: '13px', color: '#3b82f6', textDecoration: 'underline' }}>
+                                                    <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>
                                                         {customerName}
                                                     </span>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{phoneNum}</span>
@@ -414,11 +415,18 @@ const AdminDashboard = () => {
                                         </td>
                                         <td className="price-text" style={{ fontWeight: '600' }}>{formatRupiah(priceVal)}</td>
                                         <td>
-                                            <span className={`badge ${badgeClass}`} style={{ fontSize: '11px', padding: '4px 12px', fontWeight: '700', letterSpacing: '0.5px' }}>
+                                            <span className={`badge ${badgeClass}`} style={{ 
+                                                fontSize: '11px', 
+                                                padding: '4px 12px', 
+                                                fontWeight: '700', 
+                                                letterSpacing: '0.5px',
+                                                backgroundColor: badgeClass === 'selesai' ? '#dbeafe' : (badgeClass === 'process' || badgeClass === 'proses' ? '#fef9c3' : (badgeClass === 'pending' ? '#fee2e2' : (badgeClass === 'success' ? '#d1fae5' : '#1f2937'))),
+                                                color: badgeClass === 'selesai' ? '#2563eb' : (badgeClass === 'process' || badgeClass === 'proses' ? '#ca8a04' : (badgeClass === 'pending' ? '#ef4444' : (badgeClass === 'success' ? '#10b981' : '#ffffff')))
+                                            }}>
                                                 {status}
                                             </span>
                                         </td>
-                                        <td>{formatDate(dateVal)}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{formatDate(dateVal)}</td>
                                     </tr>
                                 );
                             })}
@@ -434,22 +442,25 @@ const AdminDashboard = () => {
                         className="modal-content" 
                         onClick={(e) => e.stopPropagation()} 
                         style={{ 
-                            maxWidth: '520px', 
+                            position: 'relative',
+                            maxWidth: '400px', 
                             width: '90%', 
                             textAlign: 'left', 
-                            padding: '28px',
-                            borderRadius: '20px',
-                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                            padding: '16px',   
+                            borderRadius: '16px',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                            maxHeight: '90vh',
+                            overflowY: 'auto'
                         }}
                     >
                         <button 
                             onClick={() => setSelectedTx(null)}
                             style={{
                                 position: 'absolute',
-                                top: '20px',
-                                right: '20px',
-                                width: '30px',
-                                height: '30px',
+                                top: '16px',
+                                right: '16px',
+                                width: '28px',
+                                height: '28px',
                                 borderRadius: '50%',
                                 backgroundColor: '#f3f4f6',
                                 color: '#1f2937',
@@ -459,80 +470,126 @@ const AdminDashboard = () => {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontWeight: '800',
-                                fontSize: '13px'
+                                fontSize: '14px'
                             }}
                         >
-                            X
+                            &times;
                         </button>
                         
-                        <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '16px', color: '#111827', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginTop: 0 }}>Detail Transaksi</h2>
+                        <h2 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', color: '#111827', borderBottom: '1px solid #e5e7eb', paddingBottom: '8px', marginTop: 0 }}>Detail Transaksi</h2>
                         
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div>
-                                <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '600', letterSpacing: '0.5px' }}>ID TRANSAKSI</span>
-                                <span style={{ fontSize: '16px', fontWeight: '700', color: '#2563eb' }}>{selectedTx.invoice || selectedTx.id}</span>
+                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', fontWeight: '600', letterSpacing: '0.5px' }}>ID TRANSAKSI</span>
+                                <span style={{ fontSize: '15px', fontWeight: '700', color: '#2563eb' }}>{selectedTx.invoice || selectedTx.id}</span>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', fontWeight: '600', letterSpacing: '0.5px' }}>STATUS</span>
-                                <span className={`badge ${selectedTx.status_pembayaran}`} style={{ fontSize: '12px', padding: '4px 12px', fontWeight: '700', borderRadius: '20px' }}>
-                                    {selectedTx.status_pembayaran}
+                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', fontWeight: '600', letterSpacing: '0.5px' }}>STATUS</span>
+                                <span 
+                                    className={`badge ${
+                                        String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'selesai' ? 'selesai' : (selectedTx.status_pembayaran || selectedTx.status)
+                                    }`} 
+                                    style={{ 
+                                        fontSize: '11px', 
+                                        padding: '3px 10px', 
+                                        fontWeight: '700', 
+                                        borderRadius: '20px',
+                                        backgroundColor: String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'selesai' ? '#dbeafe' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'proses' || String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'process' ? '#fef9c3' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'antri' || String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'pending' ? '#fee2e2' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'diambil' ? '#d1fae5' : '#1f2937'))),
+                                        color: String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'selesai' ? '#2563eb' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'proses' || String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'process' ? '#ca8a04' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'antri' || String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'pending' ? '#ef4444' : (String(selectedTx.status_pembayaran || selectedTx.status).toLowerCase() === 'diambil' ? '#10b981' : '#ffffff')))
+                                    }}
+                                >
+                                    {selectedTx.status_pembayaran || selectedTx.status}
                                 </span>
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', background: '#f9fafb', padding: '16px', borderRadius: '14px', border: '1px solid #e5e7eb' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px', background: '#f9fafb', padding: '12px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
                             <div>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Pelanggan</span>
-                                <span style={{ fontWeight: '700', fontSize: '14px', color: '#111827', textTransform: 'uppercase' }}>{selectedTx.nama_pelanggan || selectedTx.customer}</span>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Pelanggan</span>
+                                <span style={{ fontWeight: '700', fontSize: '13px', color: '#111827', textTransform: 'uppercase' }}>{selectedTx.nama_pelanggan || selectedTx.customer}</span>
                             </div>
                             <div>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>No Handphone</span>
-                                <span style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{selectedTx.nomor_hp || selectedTx.phone || '-'}</span>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>No Handphone</span>
+                                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{selectedTx.nomor_hp || selectedTx.phone || '-'}</span>
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Alamat</span>
-                                <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{selectedTx.alamat || '-'}</span>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Alamat</span>
+                                <span style={{ fontSize: '12px', color: '#374151', fontWeight: '500' }}>{selectedTx.alamat || '-'}</span>
                             </div>
                             {selectedTx.catatan && (
                                 <div style={{ gridColumn: 'span 2' }}>
-                                    <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Catatan</span>
-                                    <span style={{ fontSize: '13px', color: '#ef4444', fontStyle: 'italic', fontWeight: '500' }}>{selectedTx.catatan}</span>
+                                    <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Catatan</span>
+                                    <span style={{ fontSize: '12px', color: '#ef4444', fontStyle: 'italic', fontWeight: '500' }}>{selectedTx.catatan}</span>
                                 </div>
                             )}
                             <div>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Metode Pembayaran</span>
-                                <span style={{ fontWeight: '700', fontSize: '13px', color: '#065f46', textTransform: 'uppercase' }}>{selectedTx.metode_pembayaran || 'cash'}</span>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Metode</span>
+                                <span style={{ fontWeight: '700', fontSize: '12px', color: '#065f46', textTransform: 'uppercase' }}>{selectedTx.metode_pembayaran || 'cash'}</span>
                             </div>
                             <div>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Kasir Penginput</span>
-                                <span style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{selectedTx.kasir || 'Siti Aminah'}</span>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Kasir</span>
+                                <span style={{ fontWeight: '600', fontSize: '12px', color: '#111827' }}>{selectedTx.kasir || 'Siti Aminah'}</span>
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
-                                <span style={{ fontSize: '10px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Tanggal Masuk</span>
-                                <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>
+                                <span style={{ fontSize: '9px', color: '#6b7280', display: 'block', textTransform: 'uppercase', fontWeight: '600' }}>Tanggal Masuk</span>
+                                <span style={{ fontSize: '12px', color: '#374151', fontWeight: '500' }}>
                                     {formatDate(selectedTx.created_at || selectedTx.date)}
                                 </span>
                             </div>
                         </div>
 
-                        <h3 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '10px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Detail Layanan</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', maxHh: '150px', overflowY: 'auto' }}>
-                            {selectedTx.details && selectedTx.details.map((d, index) => {
-                                const name = d.layanan ? d.layanan.nama : 'Layanan';
-                                const qty = Math.round(d.jumlah || 1);
-                                const unit = d.layanan ? d.layanan.satuan : 'kg';
-                                return (
-                                    <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', paddingBottom: '6px', borderBottom: '1px dashed #e5e7eb' }}>
-                                        <span style={{ color: '#4b5563' }}>{name} <strong style={{ color: '#111827' }}>x{qty} {unit}</strong></span>
-                                        <span style={{ fontWeight: '600', color: '#111827' }}>{formatRupiah(d.subtotal || (d.jumlah * (d.layanan ? d.layanan.harga : 0)))}</span>
-                                    </div>
-                                );
-                            })}
+                        <h3 style={{ fontSize: '11px', fontWeight: '700', marginBottom: '8px', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Detail Layanan</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', maxHeight: '120px', overflowY: 'auto' }}>
+                            {selectedTx.details && selectedTx.details.length > 0 ? (
+                                selectedTx.details.map((d, index) => {
+                                    const name = d.layanan ? d.layanan.nama : 'Layanan';
+                                    const qty = Math.round(d.jumlah || 1);
+                                    const unit = d.layanan ? d.layanan.satuan : 'kg';
+                                    const price = d.layanan ? d.layanan.harga : 0;
+                                    return (
+                                        <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', paddingBottom: '5px', borderBottom: '1px dashed #e5e7eb' }}>
+                                            <span style={{ color: '#4b5563' }}>{name} <strong style={{ color: '#111827' }}>x{qty} {unit}</strong> <span style={{ fontSize: '10px', color: '#888' }}>({formatRupiah(price)}/{unit})</span></span>
+                                            <span style={{ fontWeight: '600', color: '#111827' }}>{formatRupiah(d.subtotal || (qty * price))}</span>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', paddingBottom: '5px', borderBottom: '1px dashed #e5e7eb' }}>
+                                    <span style={{ color: '#4b5563' }}>{getLayananText(selectedTx)}</span>
+                                    <span style={{ fontWeight: '600', color: '#111827' }}>{formatRupiah(selectedTx.total_harga || selectedTx.price)}</span>
+                                </div>
+                            )}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '15px', borderTop: '2px solid #e5e7eb', paddingTop: '12px', color: '#111827' }}>
+                        {/* Tax calculation 11% justified */}
+                        {(() => {
+                            const details = selectedTx.details || [];
+                            const subtotalCalc = details.length > 0
+                                ? details.reduce((sum, d) => sum + (d.subtotal || (Math.round(d.jumlah || 1) * (d.layanan ? d.layanan.harga : 0))), 0)
+                                : Math.round((selectedTx.total_harga || selectedTx.price || 0) / 1.11);
+                            const taxCalc = details.length > 0
+                                ? Math.round(subtotalCalc * 0.11)
+                                : (selectedTx.total_harga || selectedTx.price || 0) - subtotalCalc;
+                            const totalCalc = subtotalCalc + taxCalc;
+                            return (
+                                <>
+                                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '10px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569' }}>
+                                            <span>Subtotal</span>
+                                            <span style={{ fontWeight: '600' }}>{formatRupiah(subtotalCalc)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569' }}>
+                                            <span>Pajak (11%)</span>
+                                            <span style={{ fontWeight: '600' }}>{formatRupiah(taxCalc)}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        })()}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '14px', borderTop: '2px solid #e5e7eb', paddingTop: '10px', color: '#111827' }}>
                             <span>TOTAL BAYAR</span>
-                            <span style={{ color: '#10b981', fontSize: '16px' }}>{formatRupiah(selectedTx.total_harga || selectedTx.price)}</span>
+                            <span style={{ color: '#10b981', fontSize: '15px' }}>{formatRupiah(selectedTx.total_harga || selectedTx.price)}</span>
                         </div>
                     </div>
                 </div>
