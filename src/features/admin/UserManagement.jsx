@@ -37,36 +37,105 @@ const UserManagement = () => {
     
     const [newName, setNewName] = useState('');
     const [newEmail, setNewEmail] = useState('');
+    const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('KASIR');
 
-    const handleAddEmployee = (e) => {
+    const handleAddEmployee = async (e) => {
         e.preventDefault();
-        if (!newName.trim() || !newEmail.trim()) return;
+        if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) return;
 
-        const initials = newName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-        const newEmp = {
-            name: newName,
-            email: newEmail,
-            role: newRole,
-            status: 'Online',
-            initials: initials
-        };
+        try {
+            const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const res = await axios.post(`${apiURL}/cashiers`, {
+                name: newName,
+                email: newEmail,
+                password: newPassword,
+                role: newRole
+            });
 
-        setEmployees([...employees, newEmp]);
-        setNewName('');
-        setNewEmail('');
-        setNewRole('KASIR');
-        setShowAddModal(false);
+            if (res.data.status === 'success') {
+                const newEmp = {
+                    name: res.data.data.name,
+                    email: res.data.data.email,
+                    role: res.data.data.role,
+                    status: res.data.data.status,
+                    initials: res.data.data.initials
+                };
+                setEmployees([...employees, newEmp]);
+                setNewName('');
+                setNewEmail('');
+                setNewPassword('');
+                setNewRole('KASIR');
+                setShowAddModal(false);
+            }
+        } catch (error) {
+            console.error("Gagal menambahkan karyawan:", error);
+            alert(error.response?.data?.message || "Gagal menambahkan karyawan baru.");
+        }
     };
 
-    const handleDeleteEmployee = (name) => {
+    const handleDeleteEmployee = async (name, email) => {
         if (window.confirm(`Apakah Anda yakin ingin menghapus karyawan ${name}?`)) {
-            setEmployees(employees.filter(emp => emp.name !== name));
+            try {
+                const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+                const res = await axios.delete(`${apiURL}/cashiers/${email}`);
+                if (res.data.status === 'success') {
+                    setEmployees(employees.filter(emp => emp.email !== email));
+                }
+            } catch (error) {
+                console.error("Gagal menghapus karyawan:", error);
+                alert(error.response?.data?.message || "Gagal menghapus karyawan.");
+            }
+        }
+    };
+
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editEmployee, setEditEmployee] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [editPassword, setEditPassword] = useState('');
+
+    const handleOpenEditModal = (emp) => {
+        setEditEmployee(emp);
+        setEditName(emp.name);
+        setEditEmail(emp.email);
+        setEditPassword('');
+        setShowEditModal(true);
+    };
+
+    const handleEditEmployee = async (e) => {
+        e.preventDefault();
+        if (!editName.trim() || !editEmail.trim() || !editEmployee) return;
+
+        try {
+            const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const res = await axios.put(`${apiURL}/cashiers/${editEmployee.email}`, {
+                name: editName,
+                email: editEmail,
+                password: editPassword || null
+            });
+
+            if (res.data.status === 'success') {
+                setEmployees(prev => prev.map(emp => 
+                    emp.email === editEmployee.email ? {
+                        ...emp,
+                        name: res.data.data.name,
+                        email: res.data.data.email,
+                        initials: res.data.data.initials,
+                        status: res.data.data.status
+                    } : emp
+                ));
+                setShowEditModal(false);
+                setEditEmployee(null);
+            }
+        } catch (error) {
+            console.error("Gagal memperbarui data karyawan:", error);
+            alert(error.response?.data?.message || "Gagal memperbarui data karyawan.");
         }
     };
 
     const totalAdmin = employees.filter(emp => emp.role === 'ADMINISTRATOR').length;
-    const totalCashier = employees.filter(emp => emp.role === 'KASIR' || emp.role === 'KASIR').length;
+    const totalCashier = employees.filter(emp => emp.role === 'KASIR').length;
 
     const filteredEmployees = employees.filter(emp => {
         const matchesRole = roleFilter === 'Semua Role' || 
@@ -75,6 +144,18 @@ const UserManagement = () => {
         const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                               emp.email.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesRole && matchesSearch;
+    });
+
+    const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+        if (a.role === 'ADMINISTRATOR' && b.role !== 'ADMINISTRATOR') return -1;
+        if (a.role !== 'ADMINISTRATOR' && b.role === 'ADMINISTRATOR') return 1;
+
+        const aOnline = String(a.status).toLowerCase().includes('online');
+        const bOnline = String(b.status).toLowerCase().includes('online');
+        if (aOnline && !bOnline) return -1;
+        if (!aOnline && bOnline) return 1;
+
+        return a.name.localeCompare(b.name);
     });
 
     return (
@@ -196,7 +277,7 @@ const UserManagement = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredEmployees.map((emp, index) => (
+                            {sortedEmployees.map((emp, index) => (
                                 <tr key={index}>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -249,22 +330,44 @@ const UserManagement = () => {
                                         </span>
                                     </td>
                                     <td style={{ textAlign: 'center' }}>
-                                        <button 
-                                            onClick={() => handleDeleteEmployee(emp.name)}
-                                            style={{ 
-                                                padding: '4px', 
-                                                background: 'none', 
-                                                border: 'none', 
-                                                cursor: 'pointer',
-                                                color: '#ef4444'
-                                            }}
-                                            title="Hapus karyawan"
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                <polyline points="3 6 5 6 21 6" />
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                            </svg>
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                                            {emp.role === 'KASIR' && (
+                                                <button 
+                                                    onClick={() => handleOpenEditModal(emp)}
+                                                    style={{ 
+                                                        padding: '4px', 
+                                                        background: 'none', 
+                                                        border: 'none', 
+                                                        cursor: 'pointer',
+                                                        color: '#f97316'
+                                                    }}
+                                                    title="Edit karyawan"
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                        <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                            {emp.role === 'KASIR' && (
+                                                <button 
+                                                    onClick={() => handleDeleteEmployee(emp.name, emp.email)}
+                                                    style={{ 
+                                                        padding: '4px', 
+                                                        background: 'none', 
+                                                        border: 'none', 
+                                                        cursor: 'pointer',
+                                                        color: '#ef4444'
+                                                    }}
+                                                    title="Hapus karyawan"
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <polyline points="3 6 5 6 21 6" />
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -302,6 +405,18 @@ const UserManagement = () => {
                                     style={{ background: '#ffffff', border: '1px solid #d1d5db' }}
                                 />
                             </div>
+                            <div className="form-group" style={{ marginBottom: '14px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Password</label>
+                                <input 
+                                    type="password" 
+                                    value={newPassword} 
+                                    onChange={(e) => setNewPassword(e.target.value)} 
+                                    className="form-input" 
+                                    required 
+                                    placeholder="Masukkan password untuk akun baru"
+                                    style={{ background: '#ffffff', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
                             <div className="form-group" style={{ marginBottom: '20px' }}>
                                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Role Sistem</label>
                                 <select 
@@ -316,6 +431,55 @@ const UserManagement = () => {
                             </div>
                             <div className="modal-buttons" style={{ justifyContent: 'flex-end', gap: '8px', display: 'flex' }}>
                                 <button type="button" className="modal-btn no" onClick={() => setShowAddModal(false)} style={{ width: 'auto', padding: '10px 20px', borderRadius: '20px', border: 'none', cursor: 'pointer' }}>Batal</button>
+                                <button type="submit" className="modal-btn yes" style={{ width: 'auto', padding: '10px 20px', background: '#2563eb', color: '#fff', borderRadius: '20px', border: 'none', cursor: 'pointer' }}>Simpan</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showEditModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'left', borderRadius: '20px', padding: '24px' }}>
+                        <h3 className="modal-title" style={{ marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>Edit Akun Karyawan</h3>
+                        <form onSubmit={handleEditEmployee}>
+                            <div className="form-group" style={{ marginBottom: '14px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Nama</label>
+                                <input 
+                                    type="text" 
+                                    value={editName} 
+                                    onChange={(e) => setEditName(e.target.value)} 
+                                    className="form-input" 
+                                    required 
+                                    placeholder="Masukkan nama lengkap karyawan"
+                                    style={{ background: '#ffffff', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: '14px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Email</label>
+                                <input 
+                                    type="email" 
+                                    value={editEmail} 
+                                    onChange={(e) => setEditEmail(e.target.value)} 
+                                    className="form-input" 
+                                    required 
+                                    placeholder="Masukkan alamat email"
+                                    style={{ background: '#ffffff', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Password Baru (Kosongkan jika tidak diubah)</label>
+                                <input 
+                                    type="password" 
+                                    value={editPassword} 
+                                    onChange={(e) => setEditPassword(e.target.value)} 
+                                    className="form-input" 
+                                    placeholder="Masukkan password baru"
+                                    style={{ background: '#ffffff', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div className="modal-buttons" style={{ justifyContent: 'flex-end', gap: '8px', display: 'flex' }}>
+                                <button type="button" className="modal-btn no" onClick={() => { setShowEditModal(false); setEditEmployee(null); }} style={{ width: 'auto', padding: '10px 20px', borderRadius: '20px', border: 'none', cursor: 'pointer' }}>Batal</button>
                                 <button type="submit" className="modal-btn yes" style={{ width: 'auto', padding: '10px 20px', background: '#2563eb', color: '#fff', borderRadius: '20px', border: 'none', cursor: 'pointer' }}>Simpan</button>
                             </div>
                         </form>

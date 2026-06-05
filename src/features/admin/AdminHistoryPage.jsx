@@ -290,14 +290,17 @@ const AdminHistoryPage = () => {
                             maxWidth: '400px', 
                             width: '90%', 
                             textAlign: 'left', 
-                            padding: '16px',
                             borderRadius: '16px',
                             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                             position: 'relative',
                             maxHeight: '90vh',
-                            overflowY: 'auto'
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: '#ffffff'
                         }}
                     >
+                        <div style={{ overflowY: 'auto', padding: '16px', flex: 1 }}>
                         <button 
                             onClick={() => setSelectedTx(null)}
                             style={{
@@ -522,6 +525,7 @@ const AdminHistoryPage = () => {
                         )}
                     </div>
                 </div>
+            </div>
             )}
         </div>
     );

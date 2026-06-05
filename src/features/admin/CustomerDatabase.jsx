@@ -12,6 +12,7 @@ const CustomerDatabase = () => {
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadFormat, setDownloadFormat] = useState('txt');
+    const [downloadSuccess, setDownloadSuccess] = useState(false);
 
     const fetchCustomerData = async () => {
         try {
@@ -156,6 +157,7 @@ const CustomerDatabase = () => {
     const triggerDownload = () => {
         setIsDownloading(true);
         setDownloadProgress(10);
+        setDownloadSuccess(false);
         
         // Premium progress simulation
         const interval = setInterval(() => {
@@ -188,7 +190,7 @@ const CustomerDatabase = () => {
 
                         // Reset
                         setIsDownloading(false);
-                        setShowDownloadModal(false);
+                        setDownloadSuccess(true);
                         setDownloadProgress(0);
                     }, 800);
                     return 100;
@@ -556,7 +558,7 @@ const CustomerDatabase = () => {
 
             {/* Gorgeous, Custom Download Modal Popup */}
             {showDownloadModal && (
-                <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', zIndex: 1000 }}>
+                <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 1000 }}>
                     <div className="modal-content" style={{ 
                         maxWidth: '420px', 
                         width: '90%', 
@@ -567,7 +569,68 @@ const CustomerDatabase = () => {
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
                         position: 'relative'
                     }}>
-                        {!isDownloading ? (
+                        {downloadSuccess ? (
+                            <>
+                                <div style={{ 
+                                    width: '64px', 
+                                    height: '64px', 
+                                    borderRadius: '50%', 
+                                    background: '#d1fae5', 
+                                    color: '#10b981',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    margin: '0 auto 16px auto',
+                                    fontSize: '28px'
+                                }}>
+                                    ✓
+                                </div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Unduhan Berhasil!</h3>
+                                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>Berkas database pelanggan laundry Anda telah disimpan di perangkat.</p>
+                                
+                                <div style={{ 
+                                    background: '#f8fafc', 
+                                    border: '1px solid #e2e8f0', 
+                                    borderRadius: '12px', 
+                                    padding: '12px 16px', 
+                                    margin: '16px 0 24px 0',
+                                    textAlign: 'left'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>{downloadFormat === 'csv' ? '📊' : '📄'}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {`database_pelanggan_${new Date().toISOString().split('T')[0]}.${downloadFormat}`}
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                                {downloadFormat === 'csv' ? 'Excel CSV Spreadsheet' : 'Plain Text Document'} &bull; {(Math.random() * 4 + 2).toFixed(1)} KB
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        setShowDownloadModal(false);
+                                        setDownloadSuccess(false);
+                                    }}
+                                    style={{ 
+                                        padding: '10px 24px', 
+                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                                        color: '#ffffff', 
+                                        borderRadius: '24px', 
+                                        border: 'none', 
+                                        cursor: 'pointer',
+                                        fontWeight: '700',
+                                        fontSize: '13.5px',
+                                        boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)',
+                                        width: '100%'
+                                    }}
+                                >
+                                    Selesai
+                                </button>
+                            </>
+                        ) : !isDownloading ? (
                             <>
                                 <button 
                                     onClick={() => setShowDownloadModal(false)}

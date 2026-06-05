@@ -294,14 +294,14 @@ const AdminDashboard = () => {
                                                 width: '10px',
                                                 height: '10px',
                                                 borderRadius: '50%',
-                                                backgroundColor: c.status === 'Online / Aktif' ? '#10b981' : '#cbd5e1',
+                                                backgroundColor: c.status && c.status.toLowerCase().includes('online') ? '#10b981' : '#cbd5e1',
                                                 border: '2px solid #ffffff'
                                             }}
                                         />
                                     </div>
                                     <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>{c.name}</span>
                                 </div>
-                                <span style={{ fontSize: '12px', color: c.status === 'Online / Aktif' ? '#10b981' : '#6b7280', fontWeight: '600' }}>
+                                <span style={{ fontSize: '12px', color: c.status && c.status.toLowerCase().includes('online') ? '#10b981' : '#6b7280', fontWeight: '600' }}>
                                     {c.status}
                                 </span>
                             </div>
@@ -446,13 +446,16 @@ const AdminDashboard = () => {
                             maxWidth: '400px', 
                             width: '90%', 
                             textAlign: 'left', 
-                            padding: '16px',   
                             borderRadius: '16px',
                             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                             maxHeight: '90vh',
-                            overflowY: 'auto'
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: '#ffffff'
                         }}
                     >
+                        <div style={{ overflowY: 'auto', padding: '16px', flex: 1 }}>
                         <button 
                             onClick={() => setSelectedTx(null)}
                             style={{
@@ -593,6 +596,7 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 </div>
+            </div>
             )}
             
             {/* Footer */}

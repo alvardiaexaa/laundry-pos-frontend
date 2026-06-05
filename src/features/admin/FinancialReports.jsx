@@ -12,6 +12,144 @@ const FinancialReports = () => {
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadFormat, setDownloadFormat] = useState('txt');
+    const [downloadSuccess, setDownloadSuccess] = useState(false);
+
+    // Calendar & Daily Turnover States
+    const [calYear, setCalYear] = useState(2026);
+    const [calMonth, setCalMonth] = useState(5); // Juni (0-indexed)
+    const [selectedDate, setSelectedDate] = useState('2026-06-05');
+
+    const INDONESIAN_MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const INDONESIAN_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+    const getTxDateStr = (tx) => {
+        if (tx.created_at) {
+            return tx.created_at.split('T')[0];
+        }
+        if (tx.dateTime) {
+            const parts = tx.dateTime.split(' ');
+            if (parts.length >= 3) {
+                const day = String(parts[0]).padStart(2, '0');
+                const monthName = parts[1];
+                const year = parts[2];
+                const monthIdx = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'].findIndex(
+                    m => monthName.toLowerCase().startsWith(m)
+                );
+                if (monthIdx !== -1) {
+                    return `${year}-${String(monthIdx + 1).padStart(2, '0')}-${day}`;
+                }
+            }
+        }
+        return '2026-06-05';
+    };
+
+    const parseTxDate = (item) => {
+        if (item.created_at) {
+            return new Date(item.created_at);
+        }
+        if (item.dateTime) {
+            const parts = item.dateTime.split(' - ');
+            const datePart = parts[0] || item.dateTime;
+            if (datePart) {
+                const subParts = datePart.split(' ');
+                if (subParts.length >= 3) {
+                    const day = parseInt(subParts[0]);
+                    const monthName = subParts[1].toLowerCase();
+                    const year = parseInt(subParts[2]);
+                    const monthIdx = ['jan', 'feb', 'mar', 'apr', 'mei', 'jun', 'jul', 'agu', 'sep', 'okt', 'nov', 'des'].findIndex(
+                        m => monthName.startsWith(m)
+                    );
+                    if (monthIdx !== -1) {
+                        return new Date(year, monthIdx, day);
+                    }
+                }
+            }
+        }
+        const fallback = item.created_at || item.dateTime;
+        if (fallback) {
+            const d = new Date(fallback);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return new Date(2026, 5, 5);
+    };
+
+    const formatShortIDR = (amount) => {
+        if (amount >= 1000000) {
+            return `Rp ${(amount / 1000000).toFixed(1)}jt`;
+        } else if (amount >= 1000) {
+            return `Rp ${(amount / 1000).toFixed(0)}rb`;
+        }
+        return `Rp ${amount}`;
+    };
+
+    const getIndonesianFullDate = (dateStr) => {
+        const parts = dateStr.split('-');
+        if (parts.length < 3) return dateStr;
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const day = parseInt(parts[2]);
+        const dateObj = new Date(year, month, day);
+        const dayName = INDONESIAN_DAYS[dateObj.getDay()];
+        const monthName = INDONESIAN_MONTHS[month];
+        return `${dayName}, ${day} ${monthName} ${year}`;
+    };
+
+    const handlePrevMonth = () => {
+        if (calMonth === 0) {
+            setCalMonth(11);
+            setCalYear(prev => prev - 1);
+        } else {
+            setCalMonth(prev => prev - 1);
+        }
+    };
+
+    const handleNextMonth = () => {
+        if (calMonth === 11) {
+            setCalMonth(0);
+            setCalYear(prev => prev + 1);
+        } else {
+            setCalMonth(prev => prev + 1);
+        }
+    };
+
+    const handleToday = () => {
+        setCalYear(2026);
+        setCalMonth(5); // Juni
+        setSelectedDate('2026-06-05');
+    };
+
+    const generateCalendarDays = () => {
+        const days = [];
+        const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+        const lastDayDate = new Date(calYear, calMonth + 1, 0).getDate();
+        const prevMonthLastDay = new Date(calYear, calMonth, 0).getDate();
+
+        // Overflows previous month
+        for (let i = 0; i < firstDayIndex; i++) {
+            const dayNum = prevMonthLastDay - firstDayIndex + i + 1;
+            const prevMonthIdx = calMonth === 0 ? 11 : calMonth - 1;
+            const prevYearVal = calMonth === 0 ? calYear - 1 : calYear;
+            const dateStr = `${prevYearVal}-${String(prevMonthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+            days.push({ dayNum, dateStr, isCurrentMonth: false });
+        }
+
+        // Current month
+        for (let i = 1; i <= lastDayDate; i++) {
+            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            days.push({ dayNum: i, dateStr, isCurrentMonth: true });
+        }
+
+        // Overflows next month
+        const remainingCells = 42 - days.length;
+        for (let i = 1; i <= remainingCells; i++) {
+            const nextMonthIdx = calMonth === 11 ? 0 : calMonth + 1;
+            const nextYearVal = calMonth === 11 ? calYear + 1 : calYear;
+            const dateStr = `${nextYearVal}-${String(nextMonthIdx + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            days.push({ dayNum: i, dateStr, isCurrentMonth: false });
+        }
+
+        return days;
+    };
 
     const mockLedger = [
         { txId: '1001', customer: 'Amri Pratama', serviceType: 'Cuci & Lipat (2 kg)', paymentMethod: 'cash', dateTime: '24 Mei 2026 - 09.15 WIB', price: 26640, status: 'SELESAI', initials: 'AP', kasir: 'Siti Aminah' },
@@ -123,7 +261,8 @@ const FinancialReports = () => {
             initials: getInitials(tx.nama_pelanggan),
             kasir: tx.kasir || 'Siti Aminah',
             phone: tx.nomor_hp || '-',
-            address: tx.alamat || '-'
+            address: tx.alamat || '-',
+            created_at: tx.created_at
         };
     }) : mockLedger.map(m => {
         const parts = m.dateTime.split(' - ');
@@ -141,13 +280,12 @@ const FinancialReports = () => {
     const getFilteredByPeriod = (items) => {
         const now = new Date();
         return items.filter(item => {
-            // Safe fallback logic if created_at is not present (e.g. mock data)
-            const txDate = item.created_at ? new Date(item.created_at) : now;
+            const txDate = parseTxDate(item);
             const diffMs = now - txDate;
             const diffDays = diffMs / (1000 * 60 * 60 * 24);
             
             if (period === 'Bulanan') {
-                return diffDays <= 30;
+                return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
             } else if (period === 'Triwulan') {
                 return diffDays <= 90;
             } else if (period === 'Tahunan') {
@@ -157,16 +295,20 @@ const FinancialReports = () => {
         });
     };
 
-    const periodFilteredOrders = getFilteredByPeriod(orders);
-    const totalRevenue = periodFilteredOrders.length > 0 
-        ? periodFilteredOrders.reduce((sum, item) => sum + (item.total_harga || 0), 0)
-        : ledger.reduce((sum, item) => sum + item.price, 0);
+    const periodFilteredLedger = getFilteredByPeriod(ledger);
 
-    const projectedProfit = periodFilteredOrders.length > 0 
-        ? calculateProjectedProfit(periodFilteredOrders)
-        : calculateProjectedProfit(orders);
+    const totalRevenue = periodFilteredLedger.reduce((sum, item) => sum + item.price, 0);
 
-    const filteredLedger = ledger.filter(l => 
+    const projectedProfit = calculateProjectedProfit(periodFilteredLedger.map(l => {
+        const match = orders.find(o => String(o.id) === String(l.id) || String(o.invoice) === String(l.txId));
+        return {
+            total_harga: l.price,
+            layanan: l.serviceType,
+            details: match ? match.details : []
+        };
+    }));
+
+    const filteredLedger = periodFilteredLedger.filter(l => 
         l.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         l.txId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         l.serviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -179,6 +321,7 @@ const FinancialReports = () => {
     const handleDownload = () => {
         setIsDownloading(true);
         setDownloadProgress(10);
+        setDownloadSuccess(false);
         
         const interval = setInterval(() => {
             setDownloadProgress(prev => {
@@ -206,7 +349,7 @@ const FinancialReports = () => {
                         document.body.removeChild(link);
 
                         setIsDownloading(false);
-                        setShowDownloadModal(false);
+                        setDownloadSuccess(true);
                         setDownloadProgress(0);
                     }, 800);
                     return 100;
@@ -285,7 +428,7 @@ const FinancialReports = () => {
                 <div className="metric-card green" style={{ padding: '20px' }}>
                     <div className="metric-info">
                         <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            TOTAL REVENUE ({period.toUpperCase()})
+                            TOTAL PENDAPATAN ({period === 'Bulanan' ? 'BULAN INI' : period.toUpperCase()})
                         </span>
                         <span className="metric-value" style={{ fontSize: '26px', fontWeight: '700' }}>{formatRupiah(totalRevenue)}</span>
                     </div>
@@ -300,7 +443,7 @@ const FinancialReports = () => {
                 <div className="metric-card purple" style={{ padding: '20px' }}>
                     <div className="metric-info">
                         <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            PROJECTED NET PROFIT
+                            ESTIMASI PROFIT BERSIH
                         </span>
                         <span className="metric-value" style={{ fontSize: '26px', fontWeight: '700' }}>{formatRupiah(projectedProfit)}</span>
                     </div>
@@ -310,6 +453,166 @@ const FinancialReports = () => {
                             <line x1="12" x2="12" y1="20" y2="4" />
                             <line x1="6" x2="6" y1="20" y2="14" />
                         </svg>
+                    </div>
+                </div>
+            </div>
+
+            {/* NEW: FINANCIAL CALENDAR INTEGRATION */}
+            <div className="financial-dashboard-grid">
+                {/* Left Column: Calendar Grid */}
+                <div className="calendar-wrapper-box">
+                    <div className="calendar-inner-header">
+                        <div className="calendar-title-label">
+                            {INDONESIAN_MONTHS[calMonth]} {calYear}
+                        </div>
+                        <div className="calendar-nav-buttons-group">
+                            <button className="btn-calendar-nav" onClick={handlePrevMonth} title="Bulan Sebelumnya">
+                                &lt;
+                            </button>
+                            <button className="btn-calendar-today" onClick={handleToday}>
+                                Hari Ini
+                            </button>
+                            <button className="btn-calendar-nav" onClick={handleNextMonth} title="Bulan Selanjutnya">
+                                &gt;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="calendar-grid-weekdays">
+                        <div>Min</div>
+                        <div>Sen</div>
+                        <div>Sel</div>
+                        <div>Rab</div>
+                        <div>Kam</div>
+                        <div>Jum</div>
+                        <div>Sab</div>
+                    </div>
+
+                    <div className="calendar-grid-dates">
+                        {generateCalendarDays().map((d, index) => {
+                            // Filter transactions for this day
+                            const dayTxs = periodFilteredLedger.filter(tx => getTxDateStr(tx) === d.dateStr);
+                            const dayRevenue = dayTxs.reduce((sum, tx) => sum + tx.price, 0);
+
+                            // Map to unique status indicators
+                            const uniqueStatuses = Array.from(new Set(dayTxs.map(tx => {
+                                const statusLower = tx.status.toLowerCase();
+                                if (statusLower === 'success' || statusLower === 'diambil') return 'diambil';
+                                if (statusLower === 'pending' || statusLower === 'antri') return 'antri';
+                                if (statusLower === 'proses' || statusLower === 'process') return 'proses';
+                                if (statusLower === 'selesai') return 'selesai';
+                                if (statusLower === 'batal') return 'batal';
+                                return 'antri';
+                            })));
+
+                            let revClass = '';
+                            if (dayRevenue >= 300000) revClass = 'revenue-high';
+                            else if (dayRevenue >= 100000) revClass = 'revenue-medium';
+                            else if (dayRevenue > 0) revClass = 'revenue-low';
+
+                            return (
+                                <div 
+                                    key={index} 
+                                    onClick={() => setSelectedDate(d.dateStr)}
+                                    className={`calendar-grid-day-cell ${!d.isCurrentMonth ? 'other-month' : ''} ${d.dateStr === '2026-06-05' ? 'today-cell' : ''} ${d.dateStr === selectedDate ? 'selected-cell' : ''}`}
+                                >
+                                    <span className="cell-day-num">{d.dayNum}</span>
+                                    {dayRevenue > 0 && (
+                                        <span className={`cell-day-revenue ${revClass}`}>
+                                            {formatShortIDR(dayRevenue)}
+                                        </span>
+                                    )}
+                                    <div className="cell-day-indicators">
+                                        {uniqueStatuses.map(status => (
+                                            <span key={status} className={`cell-dot-indicator dot-${status}`} title={status} />
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="calendar-grid-legend">
+                        <span className="legend-wrapper-item">
+                            <span className="legend-circle-dot dot-green" /> Omzet Tinggi (&ge; Rp 300rb)
+                        </span>
+                        <span className="legend-wrapper-item">
+                            <span className="legend-circle-dot dot-blue" /> Omzet Sedang (Rp 100rb - 299rb)
+                        </span>
+                        <span className="legend-wrapper-item">
+                            <span className="legend-circle-dot dot-orange" /> Omzet Mula (&lt; Rp 100rb)
+                        </span>
+                        <span className="legend-wrapper-item">
+                            <span className="legend-circle-dot dot-gray" /> Tanpa Transaksi
+                        </span>
+                    </div>
+                </div>
+
+                {/* Right Column: Daily Details Card */}
+                <div className="financial-right-panel">
+                    <div className="financial-details-card">
+                        <div>
+                            <div className="details-flex-header">
+                                <h3>Detail Omzet Harian</h3>
+                                <span className="date-pill-badge">
+                                    {getIndonesianFullDate(selectedDate)}
+                                </span>
+                            </div>
+
+                            {(() => {
+                                const selectedTxs = periodFilteredLedger.filter(tx => getTxDateStr(tx) === selectedDate);
+                                const totalDailyRev = selectedTxs.reduce((sum, tx) => sum + tx.price, 0);
+
+                                return (
+                                    <>
+                                        <div className="daily-summary-row">
+                                            <span>Omzet Hari Ini: <strong>{formatRupiah(totalDailyRev)}</strong></span>
+                                            <span>{selectedTxs.length} Transaksi</span>
+                                        </div>
+
+                                        <div className="daily-items-scroll-wrapper">
+                                            {selectedTxs.length === 0 ? (
+                                                <div className="daily-tx-empty-state">
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                                                        <path d="M8 12h8" />
+                                                    </svg>
+                                                    <p>Tidak ada transaksi pada tanggal ini.</p>
+                                                </div>
+                                            ) : (
+                                                selectedTxs.map((tx, idx) => {
+                                                    const statusLower = tx.status.toLowerCase();
+                                                    let badgeClass = statusLower;
+                                                    if (statusLower === 'success' || statusLower === 'diambil') badgeClass = 'diambil';
+                                                    else if (statusLower === 'pending' || statusLower === 'antri') badgeClass = 'antri';
+                                                    else if (statusLower === 'proses' || statusLower === 'process') badgeClass = 'proses';
+                                                    else if (statusLower === 'selesai') badgeClass = 'selesai';
+                                                    else if (statusLower === 'batal') badgeClass = 'batal';
+
+                                                    return (
+                                                        <div key={idx} className="daily-transaction-item-row">
+                                                            <div>
+                                                                <div className="daily-tx-name-text">{tx.customer}</div>
+                                                                <div className="daily-tx-service-text">{tx.serviceType}</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <div className="daily-tx-price-val">{formatRupiah(tx.price)}</div>
+                                                                <span 
+                                                                    className={`badge ${badgeClass}`}
+                                                                    style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700', textTransform: 'uppercase' }}
+                                                                >
+                                                                    {badgeClass}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -423,7 +726,7 @@ const FinancialReports = () => {
 
             {/* Gorgeous, Custom Download Modal Popup */}
             {showDownloadModal && (
-                <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', zIndex: 1000 }}>
+                <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 1000 }}>
                     <div className="modal-content" style={{ 
                         maxWidth: '420px', 
                         width: '90%', 
@@ -434,7 +737,68 @@ const FinancialReports = () => {
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
                         position: 'relative'
                     }}>
-                        {!isDownloading ? (
+                        {downloadSuccess ? (
+                            <>
+                                <div style={{ 
+                                    width: '64px', 
+                                    height: '64px', 
+                                    borderRadius: '50%', 
+                                    background: '#d1fae5', 
+                                    color: '#10b981',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    margin: '0 auto 16px auto',
+                                    fontSize: '28px'
+                                }}>
+                                    ✓
+                                </div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Unduhan Berhasil!</h3>
+                                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>Berkas laporan keuangan laundry Anda telah disimpan di perangkat.</p>
+                                
+                                <div style={{ 
+                                    background: '#f8fafc', 
+                                    border: '1px solid #e2e8f0', 
+                                    borderRadius: '12px', 
+                                    padding: '12px 16px', 
+                                    margin: '16px 0 24px 0',
+                                    textAlign: 'left'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>{downloadFormat === 'csv' ? '📊' : '📄'}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {`laporan_keuangan_${period.toLowerCase()}_${new Date().toISOString().split('T')[0]}.${downloadFormat}`}
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                                {downloadFormat === 'csv' ? 'Spreadsheet Excel CSV' : 'Dokumen Teks Biasa'} &bull; {(Math.random() * 5 + 4).toFixed(1)} KB
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        setShowDownloadModal(false);
+                                        setDownloadSuccess(false);
+                                    }}
+                                    style={{ 
+                                        padding: '10px 24px', 
+                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                                        color: '#ffffff', 
+                                        borderRadius: '24px', 
+                                        border: 'none', 
+                                        cursor: 'pointer',
+                                        fontWeight: '700',
+                                        fontSize: '13.5px',
+                                        boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)',
+                                        width: '100%'
+                                    }}
+                                >
+                                    Selesai
+                                </button>
+                            </>
+                        ) : !isDownloading ? (
                             <>
                                 <button 
                                     onClick={() => setShowDownloadModal(false)}

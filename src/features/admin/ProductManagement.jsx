@@ -6,6 +6,9 @@ const ProductManagementPage = () => {
     const [transactions, setTransactions] = useState([]);
     const [category, setCategory] = useState('normal'); // Default ke 'normal' sesuai tab aktif Anda
     const [draggedItemId, setDraggedItemId] = useState(null);
+    const [previousServices, setPreviousServices] = useState(null);
+    const [showUndoToast, setShowUndoToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
 
     // Gunakan Ref untuk menghindari bug stale closure saat event HTML5 drag-and-drop
     const servicesRef = React.useRef(services);
@@ -164,6 +167,7 @@ const ProductManagementPage = () => {
     const handleDragStart = (e, id) => {
         setDraggedItemId(id);
         e.dataTransfer.effectAllowed = "move";
+        setPreviousServices([...servicesRef.current]);
     };
 
     const handleDragOver = (e, targetId) => {
@@ -197,6 +201,15 @@ const ProductManagementPage = () => {
                 ordered_ids: servicesRef.current.map(s => s.id)
             });
             if (res.data.status === 'success') {
+                setToastMessage("Urutan layanan berhasil diperbarui.");
+                setShowUndoToast(true);
+
+                if (window.undoTimeout) clearTimeout(window.undoTimeout);
+                window.undoTimeout = setTimeout(() => {
+                    setShowUndoToast(false);
+                    setPreviousServices(null);
+                }, 6000);
+
                 // Ambil ulang data terurut dari backend untuk verifikasi mutlak
                 const resService = await axios.get(`${apiURL}/services`);
                 if (resService.data.status === 'success' && resService.data.data.length > 0) {
@@ -209,6 +222,32 @@ const ProductManagementPage = () => {
         } catch (err) {
             console.error("Gagal menyimpan urutan ke server", err);
             alert("Gagal menyimpan urutan ke server: " + (err.response?.data?.message || err.message));
+        }
+    };
+
+    const handleUndoReorder = async () => {
+        if (!previousServices) return;
+
+        setServices(previousServices);
+        servicesRef.current = previousServices;
+        setShowUndoToast(false);
+
+        try {
+            const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const res = await axios.put(`${apiURL}/services/reorder`, {
+                ordered_ids: previousServices.map(s => s.id)
+            });
+            if (res.data.status === 'success') {
+                setToastMessage("Urutan berhasil dikembalikan!");
+                setShowUndoToast(true);
+                setPreviousServices(null);
+                setTimeout(() => {
+                    setShowUndoToast(false);
+                }, 3000);
+            }
+        } catch (err) {
+            console.error("Gagal mengembalikan urutan", err);
+            alert("Gagal mengembalikan urutan: " + (err.response?.data?.message || err.message));
         }
     };
 
@@ -653,11 +692,57 @@ const ProductManagementPage = () => {
                 </div>
             )}
 
+            {showUndoToast && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    backgroundColor: '#1e293b',
+                    color: '#ffffff',
+                    padding: '12px 20px',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    zIndex: 10000,
+                    animation: 'slideUp 0.3s ease-out',
+                    border: '1px solid #334155'
+                }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '500' }}>{toastMessage}</span>
+                    {previousServices && (
+                        <button 
+                            onClick={handleUndoReorder}
+                            style={{
+                                backgroundColor: '#3b82f6',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 14px',
+                                borderRadius: '10px',
+                                fontSize: '12.5px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                        >
+                            Undo
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* KEYFRAME ANIMATIONS STYLE */}
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: scale(0.95); }
                     to { opacity: 1; transform: scale(1); }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(100px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
                 }
             `}</style>
         </div>
